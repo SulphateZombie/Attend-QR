@@ -28,7 +28,7 @@ import {
   apiGetActivityMembers,
   apiRemoveActivityMember,
   apiRemoveActivityVolunteer,
-  apiGetAllCommittees,
+  apiGetAllCommitees
 } from '../utils/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ interface AdminActivity {
   activity_date: string;
   start_time: string;
   end_time: string;
-  committee_id: string;
+  commitee_id: string;
   volunteerCount: number;
 }
 
@@ -60,21 +60,20 @@ interface ActivityMember {
 }
 
 interface ActivityMembers {
-  committee_members: ActivityMember[];
+  commitee_members: ActivityMember[];
   volunteers: ActivityMember[];
 }
 
 // ── Default form state ────────────────────────────────────────────────────────
 
 const emptyForm = {
-  event_id: '',
-  name: '',
+  event_name: '',
   building_name: '',
   room_id: '',
   activity_date: '',
   start_time: '',
   end_time: '',
-  committee_id: '',
+  commitee_id: '',
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -107,7 +106,7 @@ export function AdminActivities() {
 
   useEffect(() => {
     loadActivities();
-    apiGetAllCommittees()
+    apiGetAllCommitees()
       .then(setCommittees)
       .catch((err) => console.error('Failed to load committees:', err));
   }, []);
@@ -141,7 +140,7 @@ export function AdminActivities() {
         ...prev,
         [activityId]: {
           ...prev[activityId],
-          committee_members: prev[activityId].committee_members.filter((m) => m.id !== memberId),
+          commitee_members: prev[activityId].commitee_members.filter((m) => m.id !== memberId),
         },
       }));
     } catch (err: any) {
@@ -187,14 +186,14 @@ export function AdminActivities() {
 
   // ── Create activity ───────────────────────────────────────────────────────
   const handleCreate = async () => {
-    const { event_id, name, building_name, room_id, activity_date, start_time, end_time, committee_id } = form;
-    if (!event_id || !name || !building_name || !room_id || !activity_date || !start_time || !end_time || !committee_id) {
-      alert('All fields are required');
+    const { event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id } = form;
+    if (!event_name || !building_name || !room_id || !activity_date || !start_time || !end_time || !commitee_id) {
+      alert("Please fill all fields");
       return;
     }
-    setCreating(true);
     try {
-      await apiCreateActivity(event_id, name, building_name, room_id, activity_date, start_time, end_time, committee_id);
+      setCreating(true);
+      await apiCreateActivity(event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id);
       setForm(emptyForm);
       setShowAdd(false);
       loadActivities();
@@ -254,12 +253,8 @@ export function AdminActivities() {
             <h3 className="font-semibold text-foreground mb-3">Create New Activity</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Activity ID (e.g. ACT001)</label>
-                <Input value={form.event_id} onChange={updateForm('event_id')} placeholder="ACT001" className="bg-input-background" />
-              </div>
-              <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Activity Name</label>
-                <Input value={form.name} onChange={updateForm('name')} placeholder="Annual Tech Fest" className="bg-input-background" />
+                <Input value={form.event_name} onChange={updateForm('event_name')} placeholder="Annual Tech Fest" className="bg-input-background" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Building Name</label>
@@ -304,8 +299,8 @@ export function AdminActivities() {
                   <p className="text-xs text-muted-foreground italic">No committees available</p>
                 ) : (
                   <Select
-                    value={form.committee_id}
-                    onValueChange={(val) => setForm((prev) => ({ ...prev, committee_id: val }))}
+                    value={form.commitee_id}
+                    onValueChange={(val) => setForm(p => ({ ...p, commitee_id: val }))}
                   >
                     <SelectTrigger className="bg-input-background border-border text-sm">
                       <SelectValue placeholder="Select a committee" />
@@ -393,15 +388,15 @@ export function AdminActivities() {
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Shield className="w-4 h-4 text-blue-400" />
-                          <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                            Committee Members ({activityMembers?.committee_members.length ?? 0})
-                          </p>
+                          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                            Committee Members ({activityMembers?.commitee_members.length ?? 0})
+                          </h4>
                         </div>
-                        {activityMembers?.committee_members.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic pl-6">No committee members assigned</p>
+                        {activityMembers?.commitee_members.length === 0 ? (
+                          <p className="text-xs text-muted-foreground p-3 text-center">No committee members assigned</p>
                         ) : (
                           <div className="space-y-2">
-                            {activityMembers?.committee_members.map((m) => (
+                            {activityMembers?.commitee_members.map((m) => (
                               <div
                                 key={m.id}
                                 className="flex items-center justify-between bg-card rounded-lg px-3 py-2"

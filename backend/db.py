@@ -91,19 +91,34 @@ def get_all_courses():
             #     SELECT c.event_id, c.time_slot_id, et.event_name, et.building_name, et.room_id
             #     FROM courses c NATURAL JOIN event_table et
             # """)
-            cur.execute("select distinct event_id,event_name,time_slot_id,building_name,room_id from students_course_view where event_id is not null")
+            cur.execute("""
+                SELECT c.event_id, et.event_name, c.time_slot_id, et.building_name, et.room_id
+                FROM courses c
+                JOIN event_table et ON c.event_id = et.event_id
+            """)
             return cur.fetchall()
 
 def get_course_by_id(course_id: str):
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("select distinct event_id,event_name,time_slot_id,building_name,room_id from students_course_view where event_id is not null and event_id=%s", (course_id,))
+            cur.execute("""
+                SELECT c.event_id, et.event_name, c.time_slot_id, et.building_name, et.room_id
+                FROM courses c
+                JOIN event_table et ON c.event_id = et.event_id
+                WHERE c.event_id = %s
+            """, (course_id,))
             return cur.fetchone()
 
 def get_courses_by_faculty(faculty_id: str):
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("select distinct event_id,event_name,time_slot_id,building_name,room_id from students_course_view where event_id is not null and host_id=%s", (faculty_id,))
+            cur.execute("""
+                SELECT c.event_id, et.event_name, c.time_slot_id, et.building_name, et.room_id
+                FROM courses c
+                JOIN event_table et ON c.event_id = et.event_id
+                JOIN event_host eh ON c.event_id = eh.event_id
+                WHERE eh.id = %s
+            """, (faculty_id,))
             return cur.fetchall()
 
 def create_course(course_id: str, name: str, building_name: str, room_id: str,
@@ -289,6 +304,112 @@ def get_enrolled_courses(student_id: str):
             result = cur.fetchall()
             print(f"DEBUG get_enrolled_courses({student_id}): {result}")
             return result
+
+
+# ── Activities ────────────────────────────────────────────────────────────────
+
+def get_all_activities():
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT a.event_id, et.event_name, a.activity_date,
+                       a.start_time, a.end_time, c.name AS commitee_name
+                FROM activities a
+                JOIN event_table et ON a.event_id = et.event_id
+                JOIN commitee c ON a.commitee_id = c.commitee_id
+                ORDER BY a.activity_date DESC
+            """)
+            return cur.fetchall()
+
+def create_activity(event_id: str, event_name: str, building_name: str,
+                    room_id: str, activity_date: str, start_time: str,
+                    end_time: str, commitee_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO event_table (event_id, event_type, event_name, building_name, room_id) VALUES (%s, %s, %s, %s, %s)",
+                (event_id, 'activity', event_name, building_name, room_id))
+            cur.execute(
+                "INSERT INTO activities (event_id, activity_date, start_time, end_time, commitee_id) VALUES (%s, %s, %s, %s, %s)",
+                (event_id, activity_date, start_time, end_time, commitee_id))
+
+def get_activity_by_id(event_id: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT a.event_id, et.event_name, a.activity_date,
+                       a.start_time, a.end_time, c.name AS commitee_name
+                FROM activities a
+                JOIN event_table et ON a.event_id = et.event_id
+                JOIN commitee c ON a.commitee_id = c.commitee_id
+                WHERE a.event_id = %s
+            """, (event_id,))
+            return cur.fetchone()
+
+def delete_activity(event_id: str):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM activity_attendance WHERE event_id = %s", (event_id,))
+            cur.execute("DELETE FROM activity_attendance_sessions WHERE event_id = %s", (event_id,))
+            cur.execute("DELETE FROM register WHERE event_id = %s", (event_id,))
+            cur.execute("DELETE FROM activities WHERE event_id = %s", (event_id,))
+            cur.execute("DELETE FROM event_table WHERE event_id = %s", (event_id,))
+
+def get_all_commitees():
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT commitee_id, name, council_under FROM commitee ORDER BY name")
+            return cur.fetchall()
+
+def get_activity_members(event_id: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Get committee members via the activity's commitee_id
+            cur.execute("""
+                SELECT u.id, u.name, u.email, u.phone_no, cm.designation
+                FROM activities a
+                JOIN commitee_members cm ON a.commitee_id = cm.commitee_id
+                JOIN user_table u ON cm.id = u.id
+                WHERE a.event_id = %s
+            """, (event_id,))
+            commitee_members = cur.fetchall()
+
+            # Get volunteers (registered users who are not committee members)
+            cur.execute("""
+                SELECT u.id, u.name, u.email, u.phone_no
+                FROM register r
+                JOIN user_table u ON r.id = u.id
+                WHERE r.event_id = %s
+                  AND r.id NOT IN (
+                      SELECT cm.id FROM commitee_members cm
+                      JOIN activities a ON a.commitee_id = cm.commitee_id
+                      WHERE a.event_id = %s
+                  )
+            """, (event_id, event_id))
+            volunteers = cur.fetchall()
+
+            return {
+                "commitee_members": [dict(m) for m in commitee_members],
+                "volunteers": [dict(v) for v in volunteers]
+            }
+
+def remove_activity_member(event_id: str, member_id: str):
+    """Remove a committee member from the activity's committee."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM commitee_members
+                WHERE id = %s AND commitee_id = (
+                    SELECT commitee_id FROM activities WHERE event_id = %s
+                )
+            """, (member_id, event_id))
+
+def remove_activity_volunteer(event_id: str, volunteer_id: str):
+    """Remove a volunteer (registered user) from the activity."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM register WHERE id = %s AND event_id = %s",
+                        (volunteer_id, event_id))
 
 def is_enrolled(student_id: str, course_id: str):
     with get_conn() as conn:

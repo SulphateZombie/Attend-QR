@@ -115,9 +115,9 @@ def get_courses(current_user: dict = Depends(require_admin)):
     return [dict(c) for c in courses]
 
 
-# ── DELETE /api/admin/courses ──────────────────────────────────────────────────
+# ── DELETE /api/admin/courses/{course_id} ─────────────────────────────────────
 
-@router.delete("/courses", status_code=status.HTTP_200_OK)
+@router.delete("/courses/{course_id}", status_code=status.HTTP_200_OK)
 def delete_course(course_id: str, current_user: dict = Depends(require_admin)):
     course = db.get_course_by_id(course_id)
     if not course:

@@ -123,15 +123,15 @@ export async function apiGetCourseSlots(courseId: string) {
 }
 
 export async function apiCreateCourse(
-  course_id: string,
-  name: string,
+  event_name: string,
   building_name: string,
   room_id: string,
-  time_slot_id: string
+  time_slot_id: string,
+  faculty_id: string
 ) {
   return apiFetch('/api/courses/', {
     method: 'POST',
-    body: JSON.stringify({ course_id, name, building_name, room_id, time_slot_id }),
+    body: JSON.stringify({ event_name, building_name, room_id, time_slot_id, faculty_id }),
   });
 }
 
@@ -184,7 +184,29 @@ export async function apiMarkAttendance(qrCode: string) {
 }
 
 export async function apiGetAttendanceStats() {
-  return apiFetch('/api/attendance/stats');
+  const rows: any[] = await apiFetch('/api/attendance/stats');
+
+  // The backend returns a per-course list; aggregate into the shape the UI expects
+  const courseWiseStats = rows.map((r: any) => ({
+    courseId: r.course_id,
+    courseName: r.course_name ?? '',
+    total: r.total_classes ?? 0,
+    attended: r.attended ?? 0,
+    percentage: r.percentage != null ? Number(r.percentage) : 0,
+  }));
+
+  const totalClasses = courseWiseStats.reduce((s, c) => s + c.total, 0);
+  const attended = courseWiseStats.reduce((s, c) => s + c.attended, 0);
+  const absent = totalClasses - attended;
+  const attendancePercentage = totalClasses > 0 ? (attended / totalClasses) * 100 : 0;
+
+  return {
+    totalClasses,
+    attended,
+    absent,
+    attendancePercentage,
+    courseWiseStats,
+  };
 }
 
 export async function apiGetAttendanceHistory(courseId?: string) {
@@ -264,7 +286,16 @@ export async function apiGetEnrolledCourses() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function apiGetAdminDashboard() {
-  return apiFetch('/api/admin/dashboard');
+  const data: any = await apiFetch('/api/admin/dashboard');
+  return {
+    totalUsers: data.total_users ?? 0,
+    totalStudents: data.total_students ?? 0,
+    totalFaculty: data.total_faculty ?? 0,
+    totalAdmins: (data.total_users ?? 0) - (data.total_students ?? 0) - (data.total_faculty ?? 0),
+    totalCourses: data.total_courses ?? 0,
+    totalAttendanceRecords: data.active_sessions ?? 0,
+    totalSlots: 0,
+  };
 }
 
 export async function apiGetAllUsers() {
@@ -299,20 +330,20 @@ export async function apiGetAllActivities() {
 }
 
 export async function apiCreateActivity(
-  event_id: string,
-  name: string,
+  event_name: string,
   building_name: string,
   room_id: string,
   activity_date: string,
   start_time: string,
   end_time: string,
-  committee_id: string,
+  commitee_id: string,
 ) {
   return apiFetch('/api/activities/', {
     method: 'POST',
     body: JSON.stringify({
-      event_id, name, building_name, room_id,
-      activity_date, start_time, end_time, committee_id,
+      event_name, building_name, room_id,
+      activity_date, start_time, end_time,
+      commitee_id: parseInt(commitee_id),
     }),
   });
 }
@@ -333,8 +364,8 @@ export async function apiRemoveActivityVolunteer(activityId: string, volunteerId
   return apiFetch(`/api/activities/${activityId}/volunteers/${volunteerId}`, { method: 'DELETE' });
 }
 
-export async function apiGetAllCommittees() {
-  return apiFetch('/api/activities/committees');
+export async function apiGetAllCommitees() {
+  return apiFetch('/api/activities/commitees');
 }
 
 // ── Also add these 3 that AdminCourses.tsx needs (if not already in api.ts) ───

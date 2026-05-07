@@ -31,7 +31,7 @@ class LoginResponse(BaseModel):
 # ── Courses ────────────────────────────────────────────────────────────────────
 
 class CourseCreate(BaseModel):
-    name: str
+    event_name: str
     building_name: str
     room_id: str
     time_slot_id: str
@@ -192,3 +192,12 @@ class ActivityOut(BaseModel):
     start_time: Optional[time]
     end_time: Optional[time]
     commitee_name: Optional[str]
+
+class ActivityCreate(BaseModel):
+    event_name: str
+    building_name: str
+    room_id: str
+    activity_date: date
+    start_time: time
+    end_time: time
+    commitee_id: int

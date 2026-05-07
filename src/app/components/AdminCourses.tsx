@@ -13,7 +13,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { apiGetAdminCourses, apiDeleteCourse, apiCreateCourse, apiGetAllSlots } from '../utils/api';
+import { apiGetAdminCourses, apiDeleteCourse, apiCreateCourse, apiGetAllSlots, apiGetAllUsers } from '../utils/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -37,16 +37,17 @@ interface AdminCourse {
 
 // ── Default form state ────────────────────────────────────────────────────────
 const emptyForm = {
-  course_id: '',
   name: '',
   building_name: '',
   room_id: '',
   time_slot_id: '',
+  faculty_id: '',
 };
 
 export function AdminCourses() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [faculties, setFaculties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -71,6 +72,14 @@ export function AdminCourses() {
     apiGetAllSlots()
       .then(setSlots)
       .catch((err) => console.error('Failed to load slots:', err));
+
+    // Load faculties for the dropdown
+    apiGetAllUsers()
+      .then((users) => {
+        const facultyList = users.filter((u: any) => u.type === 'faculty' || u.role === 'faculty');
+        setFaculties(facultyList);
+      })
+      .catch((err) => console.error('Failed to load faculties:', err));
   }, []);
 
   // ── Delete course ───────────────────────────────────────────────────────────
@@ -86,15 +95,16 @@ export function AdminCourses() {
   };
 
   // ── Create course ───────────────────────────────────────────────────────────
-  const handleCreate = async () => {
-    const { course_id, name, building_name, room_id, time_slot_id } = form;
-    if (!course_id || !name || !building_name || !room_id || !time_slot_id) {
-      alert('All fields are required');
-      return;
-    }
-    setCreating(true);
+  const handleAddCourse = async () => {
     try {
-      await apiCreateCourse(course_id, name, building_name, room_id, time_slot_id);
+      setLoading(true);
+      const { name, building_name, room_id, time_slot_id, faculty_id } = form;
+      if (!name || !building_name || !room_id || !time_slot_id || !faculty_id) {
+        alert('All fields are required');
+        return;
+      }
+      setCreating(true);
+      await apiCreateCourse(name, building_name, room_id, time_slot_id, faculty_id);
       setForm(emptyForm);
       setShowAdd(false);
       loadCourses();
@@ -155,17 +165,6 @@ export function AdminCourses() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
-                  Course ID (e.g. CS101)
-                </label>
-                <Input
-                  value={form.course_id}
-                  onChange={updateForm('course_id')}
-                  placeholder="CS101"
-                  className="bg-input-background"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">
                   Course Name
                 </label>
                 <Input
@@ -196,6 +195,34 @@ export function AdminCourses() {
                   placeholder="101"
                   className="bg-input-background"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Faculty
+                </label>
+                {faculties.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    No faculty available — create one first
+                  </p>
+                ) : (
+                  <Select
+                    value={form.faculty_id}
+                    onValueChange={(val) =>
+                      setForm((prev) => ({ ...prev, faculty_id: val }))
+                    }
+                  >
+                    <SelectTrigger className="bg-input-background border-border text-sm">
+                      <SelectValue placeholder="Select faculty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {faculties.map((fac) => (
+                        <SelectItem key={fac.id} value={fac.id}>
+                          {fac.name} &nbsp;({fac.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
@@ -230,7 +257,7 @@ export function AdminCourses() {
                 )}
               </div>
               <Button
-                onClick={handleCreate}
+                onClick={handleAddCourse}
                 disabled={!formComplete || creating}
                 className="w-full"
               >

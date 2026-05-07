@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { apiGetCourses, apiGetCourseSlots, apiGetEnrolledStudents, apiCreateCourse } from '../utils/api';
+import { apiGetCourses, apiGetCourseSlots, apiGetEnrolledStudents, apiCreateCourse, getCachedUser } from '../utils/api';
 
 export function FacultyCourses() {
   const [courses, setCourses] = useState<any[]>([]);
@@ -52,7 +52,8 @@ export function FacultyCourses() {
   const handleCreate = async () => {
     if (!newCourseId || !newName || !newBuilding || !newRoomId || !newTimeSlotId) return;
     try {
-      await apiCreateCourse(newCourseId, newName, newBuilding, newRoomId, newTimeSlotId);
+      const user = getCachedUser();
+      await apiCreateCourse(newName, newBuilding, newRoomId, newTimeSlotId, user?.id || '');
       setNewCourseId('');
       setNewName('');
       setNewBuilding('');
@@ -129,11 +130,9 @@ export function FacultyCourses() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Course Name</label>
                 <Input
-                  type="text"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Data Structures"
-                  className="bg-input-background"
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="E.g., Advanced Placement"
                 />
               </div>
               <div>

@@ -34,11 +34,11 @@ def all_courses(current_user: dict = Depends(get_current_user)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=CourseOut)
 def create_course(body: CourseCreate, current_user: dict = Depends(require_admin)):
-    course_id = str(uuid.uuid4())
+    course_id = str(uuid.uuid4())[:15]
 
     db.create_course(
         course_id=course_id,
-        name=body.name,
+        name=body.event_name,
         building_name=body.building_name,
         room_id=body.room_id,
         time_slot_id=body.time_slot_id,
