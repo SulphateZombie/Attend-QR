@@ -1,0 +1,98 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+venv*/
+ENV/
+env/
+.env/
+.venv/
+/.venv
+pipenv-*.lock
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+*.iws
+
+# VS Code
+.vscode/
+
+# Unit test / coverage reports
+.htmlcov/
+.coverage
+.coverage.*
+.cache
+.tox/
+.nox/
+.pytest_cache/
+coverage.xml
+nosetests.xml
+
+# Mypy / pyright / pylance
+.mypy_cache/
+.pyright/
+.pylance/
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Secrets and environment variables
+.env
+.env.local
+.env.*.local
+secrets.yml
+credentials.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor temporary files
+*~
+*.swp
+*.swo
+
+# Node (if frontend present)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist/
+staticfiles/
+collectstatic/
+
+# Misc
+coverage/
+htmlcov/
+.venv/
+.cache/
