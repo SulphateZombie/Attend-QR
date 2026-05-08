@@ -163,12 +163,12 @@ def get_today_slots_by_faculty(faculty_id: str):
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
-                SELECT time_slot_id,start_time,end_time,slot_day,event_id as course_id
-                FROM time_slot_id,start_time,end_time,slot_day
+                SELECT t.time_slot_id, t.start_time, t.end_time, t.slot_day, c.event_id AS course_id
+                FROM time_slot t natural join courses c natural join event_table et natural join event_host eh
                 WHERE TRIM(slot_day) = TRIM(to_char(
                     current_timestamp AT TIME ZONE 'Asia/Kolkata', 'Day'
                 ))
-                AND host_id = %s
+                AND eh.id = %s
             """, (faculty_id,))
             return cur.fetchall()
 
