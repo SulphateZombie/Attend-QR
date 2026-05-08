@@ -3,7 +3,7 @@ import psycopg2.extras
 
 import db
 from db import get_conn
-from auth import require_admin
+from security import require_admin
 from models import (
     DashboardStatsOut, AdminUserOut,
     CourseOut, RoleUpdateRequest

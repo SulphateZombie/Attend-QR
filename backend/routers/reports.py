@@ -6,7 +6,7 @@ import psycopg2.extras
 
 import db
 from db import get_conn
-from auth import get_current_user, require_admin, require_faculty
+from security import get_current_user, require_admin, require_faculty
 from models import CourseAnalyticsOut, LowAttendanceStudentOut, ReportSummaryOut
 
 router = APIRouter()

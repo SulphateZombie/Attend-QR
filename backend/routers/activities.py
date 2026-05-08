@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 import psycopg2.extras
 
 import db
-from auth import require_admin
+from security import require_admin
 from models import ActivityCreate, ActivityOut
 
 router = APIRouter()

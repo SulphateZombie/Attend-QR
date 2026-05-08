@@ -1,13 +1,13 @@
 import random, string
 from fastapi import APIRouter, HTTPException, status, Depends
 import db
-from auth import create_access_token, get_current_user
+from security import create_access_token, get_current_user
 from models import RegisterRequest, LoginRequest, LoginResponse, UserOut
 
 router = APIRouter()
 
 def generate_short_id(length=12):
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 # ── POST /api/auth/register ────────────────────────────────────────────────────
 @router.post("/register", status_code=status.HTTP_201_CREATED)

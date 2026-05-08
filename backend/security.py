@@ -48,7 +48,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_
     token = credentials.credentials
     payload = decode_token(token)
 
-    user_id: str = payload.get("sub")
+    user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

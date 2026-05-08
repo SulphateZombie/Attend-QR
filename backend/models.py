@@ -73,15 +73,20 @@ class TodaySlotOut(BaseModel):
 
 class QRGenerateRequest(BaseModel):
     course_id: str
-    slot_id: str
+    session_id: str
 
 class QRGenerateResponse(BaseModel):
     session_id: str
     course_id: str
     qr_payload: str                 # the string to encode into the QR image on frontend
+    token: str
 
 class QRValidateRequest(BaseModel):
-    qr_payload: str                 # session UUID scanned from QR
+    qr_payload: str   
+    
+class  QRRotateResponse(BaseModel):           # session UUID scanned from QR
+    qr_payload:str
+    token:str
 
 class QRValidateResponse(BaseModel):
     valid: bool

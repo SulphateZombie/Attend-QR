@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 
 import db
-from auth import get_current_user, require_admin, require_faculty
+from security import get_current_user, require_admin, require_faculty
 from models import CourseCreate, CourseOut, CourseSlotOut
 
 router = APIRouter()

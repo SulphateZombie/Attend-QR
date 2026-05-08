@@ -186,7 +186,7 @@ def create_slot(time_slot_id: str, day: str, start_time: str, end_time: str):
 
 # ── QR Sessions ───────────────────────────────────────────────────────────────
 
-def create_qr_session(session_id: uuid, course_id: str, host_id: str,
+def create_qr_session(session_id, course_id: str, host_id: str,
                       generated_at: str, expires_at: str):
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -194,6 +194,15 @@ def create_qr_session(session_id: uuid, course_id: str, host_id: str,
             # expires_time = datetime.fromisoformat(expires_at).strftime('%H:%M:%S')
             cur.execute("call start_course_attendance_session(%s,%s,%s)",(course_id,host_id,session_id))
             return session_id
+        
+def get_active_qr_session_by_id(session_id: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT * FROM course_attendance_sessions
+                WHERE session_id = %s AND is_active = TRUE
+            """, (session_id,))
+            return cur.fetchone()
 
 def get_active_qr_session(course_id: str):
     with get_conn() as conn:
@@ -204,61 +213,61 @@ def get_active_qr_session(course_id: str):
             """, (course_id,))
             return cur.fetchone()
 
-# def find_qr_session_by_code(qr_code: str):
-#     with get_conn() as conn:
-#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-#             cur.execute("SELECT * FROM course_attendance_sessions WHERE qr_code = %s", (qr_code,))
-#             return cur.fetchone()
+def find_qr_session_by_code(qr_code: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM course_attendance_sessions WHERE qr_code = %s", (qr_code,))
+            return cur.fetchone()
 
-def deactivate_qr_session(session_id: uuid):
+def deactivate_qr_session(session_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("call end_course_attendance_session(%s)",(session_id,))
 
 # ── Attendance ────────────────────────────────────────────────────────────────
 
-# def create_attendance_record(student_id: str, session_id: int,
-#                              course_id: str, status: int = 1):
-#     with get_conn() as conn:
-#         with conn.cursor() as cur:
-#             cur.execute("""
-#                 INSERT INTO course_attendance
-#                 VALUES (%s, %s, current_date, current_time, %s, %s)
-#             """, (student_id, course_id, status, session_id))
+def create_attendance_record(student_id: str, session_id: int,
+                             course_id: str, status: int = 1):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO course_attendance
+                VALUES (%s, %s, current_date, current_time, %s, %s)
+            """, (student_id, course_id, status, session_id))
 
-def give_attendance_to_person(student_id: str, session_id: int,
+def give_attendance_to_person(student_id: str, session_id: str,
                              course_id: str, status: int = 1):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("call give_course_attendance(%s,%s,%s)",(student_id,course_id,session_id))
 
-# def has_attendance_record(student_id: str, slot_id: str, course_id: str):
-#     with get_conn() as conn:
-#         with conn.cursor() as cur:
-#             cur.execute("""
-#                 SELECT 1 FROM course_attendance ac
-#                 NATURAL JOIN course_attendance_sessions acs
-#                 WHERE ac.id = %s AND acs.time_slot_id = %s AND ac.event_id = %s
-#             """, (student_id, slot_id, course_id))
-#             return cur.fetchone() is not None
+def has_attendance_record(student_id: str, slot_id: str, course_id: str):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM course_attendance ac
+                NATURAL JOIN course_attendance_sessions acs
+                WHERE ac.id = %s AND acs.time_slot_id = %s AND ac.event_id = %s
+            """, (student_id, slot_id, course_id))
+            return cur.fetchone() is not None
 
-# def get_attendance_by_student(student_id: str):
-#     with get_conn() as conn:
-#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-#             cur.execute("SELECT * FROM course_attendance WHERE id = %s", (student_id,))
-#             return cur.fetchall()
+def get_attendance_by_student(student_id: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM course_attendance WHERE id = %s", (student_id,))
+            return cur.fetchall()
 
-# def get_attendance_by_course(course_id: str):
-#     with get_conn() as conn:
-#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-#             cur.execute("SELECT * FROM course_attendance WHERE event_id = %s", (course_id,))
-#             return cur.fetchall()
+def get_attendance_by_course(course_id: str):
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM course_attendance WHERE event_id = %s", (course_id,))
+            return cur.fetchall()
 
-# def get_all_attendance_records():
-#     with get_conn() as conn:
-#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-#             cur.execute("SELECT * FROM course_attendance")
-#             return cur.fetchall()
+def get_all_attendance_records():
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM course_attendance")
+            return cur.fetchall()
 
 # ── Enrollments ───────────────────────────────────────────────────────────────
 

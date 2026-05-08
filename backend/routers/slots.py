@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 import db
-from auth import get_current_user, require_faculty
+from security import get_current_user, require_faculty
 from models import SlotOut, TodaySlotOut
 
 router = APIRouter()

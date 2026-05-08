@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 
 import db
-from auth import get_current_user, require_admin
+from security import get_current_user, require_admin
 from models import (
     EnrollRequest, SelfEnrollRequest, UnenrollRequest,
     EnrolledStudentOut, EnrolledCourseOut

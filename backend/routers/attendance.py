@@ -3,8 +3,10 @@ import psycopg2.extras
 
 import db
 from db import get_conn
-from auth import get_current_user
+from security import get_current_user
 from models import MarkAttendanceRequest, AttendanceStatOut, AttendanceHistoryOut
+from token_util import verify_token
+import uuid
 
 router = APIRouter()
 
@@ -13,71 +15,61 @@ router = APIRouter()
 
 @router.post("/mark", status_code=status.HTTP_201_CREATED)
 def mark_attendance(body: MarkAttendanceRequest, current_user: dict = Depends(get_current_user)):
-    # only students can mark attendance
     if current_user["type"] != "student":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only students can mark attendance"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only students can mark attendance")
 
-    # validate the QR payload — find the active session by session_id
+    session_id = None
+    token = None
     try:
-        import uuid
-        session_uuid = uuid.UUID(body.qr_payload)
+        parts = body.qr_payload.split(":", 1)
+        if len(parts) != 2:
+            raise ValueError()
+        session_id = str(uuid.UUID(parts[0]))
+        token = parts[1]
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid QR code format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid QR code format")
+
+    session = db.get_active_qr_session_by_id(session_id)
+
+    if not session or not verify_token(session_id, token):
+        raise HTTPException(status_code=400, detail="Invalid or expired QR code")
 
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
                 SELECT * FROM course_attendance_sessions
                 WHERE session_id = %s AND is_active = TRUE
-            """, (str(session_uuid),))
+            """, (str(session_id),))
             session = cur.fetchone()
 
     if not session:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired QR code"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid or expired QR code")
 
-    # make sure the session's course matches the requested course
     if str(session["event_id"]) != body.course_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="QR code does not match the requested course"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="QR code does not match the requested course")
 
-    # check student is enrolled in the course
     if not db.is_enrolled(current_user["id"], body.course_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not enrolled in this course"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You are not enrolled in this course")
 
-    # check if attendance already marked for this session
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT 1 FROM course_attendance
-                WHERE id = %s
-                AND session_id = %s
-            """, (current_user["id"], str(session_uuid)))
+                WHERE id = %s AND session_id = %s
+            """, (current_user["id"], str(session_id)))
             already_marked = cur.fetchone()
 
     if already_marked:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Attendance already marked for this session"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Attendance already marked for this session")
 
-    # mark attendance
     db.give_attendance_to_person(
         student_id=current_user["id"],
-        session_id=str(session_uuid),
+        session_id=str(session_id),
         course_id=body.course_id
     )
 
@@ -94,31 +86,31 @@ def get_stats(current_user: dict = Depends(get_current_user)):
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
                 SELECT
-                    ca.event_id                             AS course_id,
-                    et.event_name                           AS course_name,
-                    COUNT(DISTINCT cas.session_id)          AS total_classes,
-                    COUNT(ca.id)                            AS attended,
+                    r.event_id                                          AS course_id,
+                    et.event_name                                       AS course_name,
+                    COUNT(DISTINCT cas.session_id)                      AS total_classes,
+                    sum(ca.status)                      AS attended,
                     ROUND(
-                        COUNT(ca.id)::numeric /
-                        NULLIF(COUNT(DISTINCT cas.session_id), 0) * 100,
-                    2)                                      AS percentage
+                        sum(ca.status)::numeric /
+                        NULLIF(COUNT(DISTINCT cas.session_id), 0) * 100
+                    , 2)                                                AS percentage
                 FROM register r
                 JOIN event_table et
                     ON r.event_id = et.event_id
-                JOIN course_attendance_sessions cas
+                LEFT JOIN course_attendance_sessions cas
                     ON cas.event_id = r.event_id
                 LEFT JOIN course_attendance ca
                     ON ca.event_id = r.event_id
                     AND ca.id = %s
                     AND ca.session_id = cas.session_id
                 WHERE r.id = %s
-                GROUP BY ca.event_id, et.event_name, r.event_id
+                GROUP BY r.event_id, et.event_name
             """, (student_id, student_id))
             rows = cur.fetchall()
 
     return [
         AttendanceStatOut(
-            course_id=str(row["course_id"]) if row["course_id"] else str(row["event_id"] if "event_id" in row else ""),
+            course_id=str(row["course_id"]),
             course_name=row["course_name"],
             total_classes=row["total_classes"] or 0,
             attended=row["attended"] or 0,
@@ -140,13 +132,12 @@ def get_history(current_user: dict = Depends(get_current_user)):
                 SELECT
                     ca.event_id         AS course_id,
                     et.event_name       AS course_name,
-                    ca.attendance_date             AS date,
+                    ca.attendance_date  AS date,
                     ca.status           AS status
                 FROM course_attendance ca
-                JOIN event_table et
-                    ON ca.event_id = et.event_id
+                JOIN event_table et ON ca.event_id = et.event_id
                 WHERE ca.id = %s
-                ORDER BY ca.date DESC
+                ORDER BY ca.attendance_date DESC
             """, (student_id,))
             rows = cur.fetchall()
 
