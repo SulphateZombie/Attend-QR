@@ -1,4 +1,3 @@
-import uuid
 from fastapi import APIRouter, HTTPException, status, Depends
 
 import db
@@ -34,24 +33,27 @@ def all_courses(current_user: dict = Depends(get_current_user)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=CourseOut)
 def create_course(body: CourseCreate, current_user: dict = Depends(require_admin)):
-    course_id = str(uuid.uuid4())[:15]
-
+    # Check if course_id already exists
+    existing = db.get_course_by_id(body.course_id)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Course ID already exists"
+        )
     db.create_course(
-        course_id=course_id,
+        course_id=body.course_id,   # ← use from body instead of generating
         name=body.event_name,
         building_name=body.building_name,
         room_id=body.room_id,
         time_slot_id=body.time_slot_id,
         faculty_id=body.faculty_id
     )
-
-    course = db.get_course_by_id(course_id)
+    course = db.get_course_by_id(body.course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Course created but could not be retrieved"
         )
-
     return dict(course)
 
 

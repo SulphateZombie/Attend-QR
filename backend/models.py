@@ -31,6 +31,7 @@ class LoginResponse(BaseModel):
 # ── Courses ────────────────────────────────────────────────────────────────────
 
 class CourseCreate(BaseModel):
+    course_id: str      # ← ADD THIS
     event_name: str
     building_name: str
     room_id: str
@@ -194,6 +195,7 @@ class ActivityOut(BaseModel):
     commitee_name: Optional[str]
 
 class ActivityCreate(BaseModel):
+    event_id: str        # ← ADD THIS
     event_name: str
     building_name: str
     room_id: str

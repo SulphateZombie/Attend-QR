@@ -1,4 +1,3 @@
-import uuid
 from fastapi import APIRouter, HTTPException, status, Depends
 import psycopg2.extras
 
@@ -22,10 +21,15 @@ def get_all_commitees(current_user: dict = Depends(require_admin)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=ActivityOut)
 def create_activity(body: ActivityCreate, current_user: dict = Depends(require_admin)):
-    event_id = str(uuid.uuid4())[:15]
-
+    # Check if event_id already exists
+    existing = db.get_activity_by_id(body.event_id)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Activity ID already exists"
+        )
     db.create_activity(
-        event_id=event_id,
+        event_id=body.event_id,        # ← use from body
         event_name=body.event_name,
         building_name=body.building_name,
         room_id=body.room_id,
@@ -34,8 +38,7 @@ def create_activity(body: ActivityCreate, current_user: dict = Depends(require_a
         end_time=str(body.end_time),
         commitee_id=body.commitee_id,
     )
-
-    activity = db.get_activity_by_id(event_id)
+    activity = db.get_activity_by_id(body.event_id)
     if not activity:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

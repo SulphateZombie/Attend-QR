@@ -123,6 +123,7 @@ export async function apiGetCourseSlots(courseId: string) {
 }
 
 export async function apiCreateCourse(
+  course_id: string,  // ← ADD
   event_name: string,
   building_name: string,
   room_id: string,
@@ -131,7 +132,7 @@ export async function apiCreateCourse(
 ) {
   return apiFetch('/api/courses/', {
     method: 'POST',
-    body: JSON.stringify({ event_name, building_name, room_id, time_slot_id, faculty_id }),
+    body: JSON.stringify({ course_id, event_name, building_name, room_id, time_slot_id, faculty_id }),
   });
 }
 
@@ -303,7 +304,7 @@ export async function apiGetAllUsers() {
 }
 
 export async function apiDeleteUser(userId: string) {
-  return apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+  return apiFetch(`/api/admin/users?user_id=${userId}`, { method: 'DELETE' });
 }
 
 export async function apiChangeUserRole(userId: string, role: string) {
@@ -330,6 +331,7 @@ export async function apiGetAllActivities() {
 }
 
 export async function apiCreateActivity(
+  event_id: string,        // ← ADD
   event_name: string,
   building_name: string,
   room_id: string,
@@ -341,6 +343,7 @@ export async function apiCreateActivity(
   return apiFetch('/api/activities/', {
     method: 'POST',
     body: JSON.stringify({
+      event_id,             // ← ADD
       event_name, building_name, room_id,
       activity_date, start_time, end_time,
       commitee_id: parseInt(commitee_id),

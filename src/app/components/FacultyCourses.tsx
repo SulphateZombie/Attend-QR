@@ -53,8 +53,7 @@ export function FacultyCourses() {
     if (!newCourseId || !newName || !newBuilding || !newRoomId || !newTimeSlotId) return;
     try {
       const user = getCachedUser();
-      await apiCreateCourse(newName, newBuilding, newRoomId, newTimeSlotId, user?.id || '');
-      setNewCourseId('');
+      await apiCreateCourse(newCourseId, newName, newBuilding, newRoomId, newTimeSlotId, user?.id || '');      setNewCourseId('');
       setNewName('');
       setNewBuilding('');
       setNewRoomId('');

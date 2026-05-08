@@ -6,7 +6,7 @@
  * - Click to expand: see committee members (organisers) + volunteers
  * - Remove a committee member or volunteer from an activity
  * - Delete an activity entirely
- * - Create new activities (with committee dropdown)
+ * - Create new activities (with committee dropdown + manual event_id)
  */
 
 import { useEffect, useState } from 'react';
@@ -56,7 +56,7 @@ interface ActivityMember {
   name: string;
   email: string;
   phone_no?: string;
-  designation?: string;  // only for committee members
+  designation?: string;
 }
 
 interface ActivityMembers {
@@ -67,6 +67,7 @@ interface ActivityMembers {
 // ── Default form state ────────────────────────────────────────────────────────
 
 const emptyForm = {
+  event_id: '',        // ← NEW
   event_name: '',
   building_name: '',
   room_id: '',
@@ -86,7 +87,6 @@ export function AdminActivities() {
   const [form, setForm] = useState(emptyForm);
   const [creating, setCreating] = useState(false);
 
-  // Expand/detail state
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [members, setMembers] = useState<Record<string, ActivityMembers>>({});
   const [membersLoading, setMembersLoading] = useState<string | null>(null);
@@ -186,14 +186,14 @@ export function AdminActivities() {
 
   // ── Create activity ───────────────────────────────────────────────────────
   const handleCreate = async () => {
-    const { event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id } = form;
-    if (!event_name || !building_name || !room_id || !activity_date || !start_time || !end_time || !commitee_id) {
+    const { event_id, event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id } = form;
+    if (!event_id || !event_name || !building_name || !room_id || !activity_date || !start_time || !end_time || !commitee_id) {
       alert("Please fill all fields");
       return;
     }
     try {
       setCreating(true);
-      await apiCreateActivity(event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id);
+      await apiCreateActivity(event_id, event_name, building_name, room_id, activity_date, start_time, end_time, commitee_id);
       setForm(emptyForm);
       setShowAdd(false);
       loadActivities();
@@ -252,6 +252,18 @@ export function AdminActivities() {
           <Card className="p-4 bg-card border-primary/50 border-2">
             <h3 className="font-semibold text-foreground mb-3">Create New Activity</h3>
             <div className="space-y-3">
+
+              {/* Activity ID — NEW FIELD */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Activity ID</label>
+                <Input
+                  value={form.event_id}
+                  onChange={updateForm('event_id')}
+                  placeholder="ACT001"
+                  className="bg-input-background"
+                />
+              </div>
+
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Activity Name</label>
                 <Input value={form.event_name} onChange={updateForm('event_name')} placeholder="Annual Tech Fest" className="bg-input-background" />
@@ -276,21 +288,11 @@ export function AdminActivities() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Start Time</label>
-                  <Input
-                    type="time"
-                    value={form.start_time}
-                    onChange={updateForm('start_time')}
-                    className="bg-input-background"
-                  />
+                  <Input type="time" value={form.start_time} onChange={updateForm('start_time')} className="bg-input-background" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">End Time</label>
-                  <Input
-                    type="time"
-                    value={form.end_time}
-                    onChange={updateForm('end_time')}
-                    className="bg-input-background"
-                  />
+                  <Input type="time" value={form.end_time} onChange={updateForm('end_time')} className="bg-input-background" />
                 </div>
               </div>
               <div>
@@ -334,7 +336,6 @@ export function AdminActivities() {
 
           return (
             <Card key={activity.event_id} className="bg-card border-border overflow-hidden">
-              {/* Activity row — click to expand */}
               <div
                 className="p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/30 transition-colors"
                 onClick={() => handleToggleExpand(activity.event_id)}
@@ -384,7 +385,7 @@ export function AdminActivities() {
                     </div>
                   ) : (
                     <>
-                      {/* Committee members (organisers) */}
+                      {/* Committee members */}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Shield className="w-4 h-4 text-blue-400" />
@@ -397,10 +398,7 @@ export function AdminActivities() {
                         ) : (
                           <div className="space-y-2">
                             {activityMembers?.commitee_members.map((m) => (
-                              <div
-                                key={m.id}
-                                className="flex items-center justify-between bg-card rounded-lg px-3 py-2"
-                              >
+                              <div key={m.id} className="flex items-center justify-between bg-card rounded-lg px-3 py-2">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
@@ -417,7 +415,6 @@ export function AdminActivities() {
                                   variant="ghost"
                                   size="sm"
                                   className="text-destructive hover:bg-destructive/10 ml-2 shrink-0"
-                                  title="Remove from committee"
                                 >
                                   <UserMinus className="w-4 h-4" />
                                 </Button>
@@ -440,10 +437,7 @@ export function AdminActivities() {
                         ) : (
                           <div className="space-y-2">
                             {activityMembers?.volunteers.map((v) => (
-                              <div
-                                key={v.id}
-                                className="flex items-center justify-between bg-card rounded-lg px-3 py-2"
-                              >
+                              <div key={v.id} className="flex items-center justify-between bg-card rounded-lg px-3 py-2">
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-foreground truncate">{v.name}</p>
                                   <p className="text-xs text-muted-foreground truncate">{v.email}</p>
@@ -453,7 +447,6 @@ export function AdminActivities() {
                                   variant="ghost"
                                   size="sm"
                                   className="text-destructive hover:bg-destructive/10 ml-2 shrink-0"
-                                  title="Remove volunteer"
                                 >
                                   <UserMinus className="w-4 h-4" />
                                 </Button>

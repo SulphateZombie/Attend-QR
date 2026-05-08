@@ -4,7 +4,7 @@
  * Admin panel page for managing all courses:
  * - View all courses with enrollment counts
  * - Delete courses from the system
- * - Create new courses (with all required fields)
+ * - Create new courses (with all required fields including course_id)
  */
 
 import { useEffect, useState } from 'react';
@@ -25,7 +25,6 @@ interface TimeSlot {
   end_time: string;
 }
 
-// Matches what GET /api/admin/courses actually returns from the backend
 interface AdminCourse {
   event_id: string;
   event_name: string;
@@ -37,6 +36,7 @@ interface AdminCourse {
 
 // ── Default form state ────────────────────────────────────────────────────────
 const emptyForm = {
+  course_id: '',
   name: '',
   building_name: '',
   room_id: '',
@@ -68,12 +68,10 @@ export function AdminCourses() {
 
   useEffect(() => {
     loadCourses();
-    // Load slots once for the dropdown — no need to reload on course changes
     apiGetAllSlots()
       .then(setSlots)
       .catch((err) => console.error('Failed to load slots:', err));
 
-    // Load faculties for the dropdown
     apiGetAllUsers()
       .then((users) => {
         const facultyList = users.filter((u: any) => u.type === 'faculty' || u.role === 'faculty');
@@ -87,7 +85,6 @@ export function AdminCourses() {
     if (!confirm('Are you sure you want to delete this course? This will remove all enrollments and attendance records.')) return;
     try {
       await apiDeleteCourse(courseId);
-      // Optimistic update
       setCourses((prev) => prev.filter((c) => c.event_id !== courseId));
     } catch (err: any) {
       alert(err.message || 'Failed to delete course');
@@ -96,15 +93,14 @@ export function AdminCourses() {
 
   // ── Create course ───────────────────────────────────────────────────────────
   const handleAddCourse = async () => {
+    const { course_id, name, building_name, room_id, time_slot_id, faculty_id } = form;
+    if (!course_id || !name || !building_name || !room_id || !time_slot_id || !faculty_id) {
+      alert('All fields are required');
+      return;
+    }
     try {
-      setLoading(true);
-      const { name, building_name, room_id, time_slot_id, faculty_id } = form;
-      if (!name || !building_name || !room_id || !time_slot_id || !faculty_id) {
-        alert('All fields are required');
-        return;
-      }
       setCreating(true);
-      await apiCreateCourse(name, building_name, room_id, time_slot_id, faculty_id);
+      await apiCreateCourse(course_id, name, building_name, room_id, time_slot_id, faculty_id);
       setForm(emptyForm);
       setShowAdd(false);
       loadCourses();
@@ -158,11 +154,26 @@ export function AdminCourses() {
 
       <div className="p-4 space-y-3">
 
-        {/* Create form — all 5 required fields */}
+        {/* Create form */}
         {showAdd && (
           <Card className="p-4 bg-card border-primary/50 border-2">
             <h3 className="font-semibold text-foreground mb-3">Create New Course</h3>
             <div className="space-y-3">
+
+              {/* Course ID — NEW FIELD */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Course ID
+                </label>
+                <Input
+                  value={form.course_id}
+                  onChange={updateForm('course_id')}
+                  placeholder="CS101"
+                  className="bg-input-background"
+                />
+              </div>
+
+              {/* Course Name */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Course Name
@@ -174,6 +185,8 @@ export function AdminCourses() {
                   className="bg-input-background"
                 />
               </div>
+
+              {/* Building Name */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Building Name
@@ -185,6 +198,8 @@ export function AdminCourses() {
                   className="bg-input-background"
                 />
               </div>
+
+              {/* Room ID */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Room ID
@@ -196,6 +211,8 @@ export function AdminCourses() {
                   className="bg-input-background"
                 />
               </div>
+
+              {/* Faculty */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Faculty
@@ -224,6 +241,8 @@ export function AdminCourses() {
                   </Select>
                 )}
               </div>
+
+              {/* Time Slot */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Time Slot
@@ -256,6 +275,7 @@ export function AdminCourses() {
                   </Select>
                 )}
               </div>
+
               <Button
                 onClick={handleAddCourse}
                 disabled={!formComplete || creating}
@@ -273,13 +293,12 @@ export function AdminCourses() {
           </Card>
         )}
 
-        {/* Course list — uses event_id, event_name, building_name, room_id */}
+        {/* Course list */}
         {courses.map((course) => (
           <Card key={course.event_id} className="p-4 bg-card border-border">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  {/* event_id as the course code badge */}
                   <Badge className="bg-primary/20 text-primary border-primary/50 border text-xs">
                     {course.event_id}
                   </Badge>
@@ -296,7 +315,6 @@ export function AdminCourses() {
                 </div>
               </div>
 
-              {/* Delete */}
               <Button
                 onClick={() => handleDelete(course.event_id)}
                 variant="ghost"

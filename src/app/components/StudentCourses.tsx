@@ -3,8 +3,7 @@ import { Book, Clock, MapPin, Calendar, Loader2, CheckCircle } from 'lucide-reac
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { apiGetCourses, apiGetCourseSlots, apiGetAllCourses, apiSelfEnroll } from '../utils/api';
-
+import { apiGetEnrolledCourses, apiGetCourseSlots, apiGetAllCourses, apiSelfEnroll } from '../utils/api';
 export function StudentCourses() {
   const [courses, setCourses] = useState<any[]>([]);
   const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -16,7 +15,7 @@ export function StudentCourses() {
   const loadData = async () => {
     try {
       const [coursesData, allData] = await Promise.all([
-        apiGetCourses(),
+        apiGetEnrolledCourses(),
         apiGetAllCourses(),
       ]);
       setCourses(coursesData);
