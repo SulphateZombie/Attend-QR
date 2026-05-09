@@ -73,7 +73,7 @@ class TodaySlotOut(BaseModel):
 
 class QRGenerateRequest(BaseModel):
     course_id: str
-    session_id: str
+    # session_id: str
 
 class QRGenerateResponse(BaseModel):
     session_id: str

@@ -33,7 +33,7 @@ export function FacultyCourses() {
             apiGetEnrolledStudents(courseId),
           ]);
           slotsMap[courseId] = slots;
-          countsMap[courseId] = enrollmentData.totalStudents || 0;
+          countsMap[courseId] = Array.isArray(enrollmentData) ? enrollmentData.length : 0;
         })
       );
       setCourseSlots(slotsMap);

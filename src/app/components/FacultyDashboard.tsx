@@ -17,6 +17,7 @@ import {
   apiGetCourseSlots,
   apiGenerateQR,
   apiGetTodaySlots,
+  apiRotateQR
 } from '../utils/api';
 import { QRSession } from '../types';
 
@@ -30,6 +31,7 @@ export function FacultyDashboard() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [todaySlots, setTodaySlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qrPayload,setQrPayload]=useState<string>('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,14 +77,28 @@ export function FacultyDashboard() {
   const handleGenerateQR = async () => {
   if (!selectedCourse || !selectedSlot) return;
   try {
-    // selectedSlot is now "A-Monday", extract just "A"
-    const slotId = selectedSlot.split('-')[0];
-    const session = await apiGenerateQR(slotId, selectedCourse, 5);
+    const session = await apiGenerateQR(selectedCourse); // ✅ only course_id needed
     setActiveSession(session);
+    setQrPayload(session.qr_payload);
   } catch (err: any) {
     console.error('Failed to generate QR:', err);
   }
 };
+
+useEffect(() => {
+  if (!activeSession) return;
+
+  const rotateInterval = setInterval(async () => {
+    try {
+      const rotated = await apiRotateQR(activeSession.sessionId);
+      setQrPayload(rotated.qr_payload);   // update QR with new token
+    } catch (err) {
+      console.error('Token rotation failed:', err);
+    }
+  }, 30000);  // every 30 seconds
+
+  return () => clearInterval(rotateInterval);
+}, [activeSession]);
 
   const handleCloseSession = () => {
     setActiveSession(null);
@@ -137,7 +153,7 @@ export function FacultyDashboard() {
             </div>
 
             <div className="bg-white p-6 rounded-xl mb-4 aspect-square max-w-[250px] mx-auto flex items-center justify-center">
-              <QRCodeSVG value={activeSession.qrCode} size={200} className="w-full h-full max-w-full" />
+              <QRCodeSVG value={qrPayload} size={200} className="w-full h-full max-w-full" />
             </div>
 
             <div className="text-center">
@@ -155,6 +171,7 @@ export function FacultyDashboard() {
           </Card>
         ) : (
           <>
+            {/* Generate QR Card */}
             <Card className="p-4 bg-card border-border">
               <h3 className="font-semibold text-foreground mb-4">Generate QR Code</h3>
               <div className="space-y-3">
@@ -188,7 +205,7 @@ export function FacultyDashboard() {
                         <SelectValue placeholder="Choose a slot" />
                       </SelectTrigger>
                       <SelectContent>
-                        {selectedCourseSlots.map((slot: any,index:number) => (
+                        {selectedCourseSlots.map((slot: any, index: number) => (
                           <SelectItem
                             key={`${slot.time_slot_id}-${slot.slot_day}-${index}`}
                             value={`${slot.time_slot_id}-${slot.slot_day}`}
@@ -212,30 +229,48 @@ export function FacultyDashboard() {
               </div>
             </Card>
 
+            {/* Today's Classes Card */}
             <Card className="p-4 bg-card border-border">
               <h3 className="font-semibold text-foreground mb-3">Today's Classes</h3>
               {todaySlots.length > 0 ? (
                 <div className="space-y-2">
-                  {todaySlots.map((slot: any) => (
-                    <div key={slot.time_slot_id || slot.id} className="p-3 bg-secondary rounded-lg border border-border">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-foreground text-sm">
-                            {slot.courseName || 'Unknown Course'}
-                          </p>
-                          <Badge className="bg-primary/20 text-primary border-primary/50 border text-xs mt-1">
-                            {slot.courseCode || 'N/A'}
-                          </Badge>
+                  {todaySlots.map((slot: any, index: number) => {
+                    // Look up course name from already-loaded courses list
+                    const course = courses.find(
+                      (c: any) => (c.event_id || c.id) === slot.course_id
+                    );
+                    const courseName = course?.event_name || course?.name || slot.course_id || 'Unknown Course';
+                    const courseCode = slot.course_id || 'N/A';
+
+                    return (
+                      <div
+                        key={`${slot.time_slot_id}-${index}`}
+                        className="p-3 bg-secondary rounded-lg border border-border"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-foreground text-sm">
+                              {courseName}
+                            </p>
+                            <Badge className="bg-primary/20 text-primary border-primary/50 border text-xs mt-1">
+                              {courseCode}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>
+                              {String(slot.start_time || slot.startTime)} - {String(slot.end_time || slot.endTime)}
+                            </span>
+                          </div>
+                          {slot.slot_day && (
+                            <span className="text-muted-foreground">{slot.slot_day}</span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{slot.start_time || slot.startTime} - {slot.end_time || slot.endTime}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
@@ -246,6 +281,7 @@ export function FacultyDashboard() {
           </>
         )}
 
+        {/* How it Works */}
         <Card className="p-4 bg-card border-border">
           <h3 className="font-semibold text-foreground mb-3">How it Works</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">

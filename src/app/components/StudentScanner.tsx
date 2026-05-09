@@ -14,7 +14,7 @@ import QrScanner from 'react-qr-scanner';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { apiMarkAttendance } from '../utils/api';
+import { apiMarkAttendance, apiValidateQR } from '../utils/api';
 
 export function StudentScanner() {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -27,47 +27,33 @@ export function StudentScanner() {
    * Sends the code to the backend API for validation and attendance marking.
    */
   const handleScan = async (scannedData?: string | object | null) => {
-    // Extract text from scanner data (react-qr-scanner v1 returns objects)
-    let dataToScan = typeof scannedData === 'string'
-      ? scannedData
-      : (scannedData as any)?.text || qrInput;
+  let dataToScan = typeof scannedData === 'string'
+    ? scannedData
+    : (scannedData as any)?.text || qrInput;
 
-    if (!dataToScan) return;
-    if (scanning) return;  // Prevent duplicate submissions
+  if (!dataToScan || scanning) return;
+  setScanning(true);
 
-    setQrInput(dataToScan);
-    setScanning(true);
-
-    try {
-      // Call the backend to mark attendance with the QR code
-      const response = await apiMarkAttendance(dataToScan);
-
-      if (response.success) {
-        setResult({
-          success: true,
-          message: response.message || 'Attendance marked successfully!',
-        });
-        // Notify other components (like dashboard) to refresh their data
-        window.dispatchEvent(new Event('attendance-update'));
-      } else {
-        setResult({
-          success: false,
-          message: response.error || 'Failed to mark attendance',
-        });
-      }
-    } catch (err: any) {
-      setResult({
-        success: false,
-        message: err.message || 'Failed to mark attendance',
-      });
+  try {
+    // Step 1: validate the QR and get course_id
+    const validated = await apiValidateQR(dataToScan);
+    if (!validated.valid) {
+      setResult({ success: false, message: validated.message });
+      return;
     }
 
+    // Step 2: mark attendance with both payload and course_id
+    await apiMarkAttendance(dataToScan, validated.course_id);
+    setResult({ success: true, message: 'Attendance marked successfully!' });
+    window.dispatchEvent(new Event('attendance-update'));
+  } catch (err: any) {
+    setResult({ success: false, message: err.message || 'Failed to mark attendance' });
+  } finally {
     setScanning(false);
     setQrInput('');
-
-    // Clear result message after 3 seconds
     setTimeout(() => setResult(null), 3000);
-  };
+  }
+};
 
   /** Handle camera errors gracefully */
   const handleQrError = (err: any) => {

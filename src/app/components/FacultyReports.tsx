@@ -1,9 +1,3 @@
-/**
- * Faculty Reports Component.
- * Shows attendance analytics, export options, and low-attendance alerts.
- * [NEW] Added CSV export and low-attendance student identification.
- */
-
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Calendar, TrendingUp, Users, FileText, Download, AlertTriangle, Loader2 } from 'lucide-react';
@@ -12,18 +6,16 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { apiGetCourses, apiGetCourseReport, apiGetReportsSummary, apiExportCSV, apiGetLowAttendance } from '../utils/api';
-import { Course } from '../types';
 
 export function FacultyReports() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [reportData, setReportData] = useState<any>(null);
-  const [summary, setSummary] = useState<any>(null);
-  const [lowAttendance, setLowAttendance] = useState<any>(null);
+  const [summary, setSummary] = useState<any[]>([]);
+  const [lowAttendance, setLowAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
 
-  // Load courses and summary on mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -32,7 +24,7 @@ export function FacultyReports() {
           apiGetReportsSummary(),
         ]);
         setCourses(coursesData);
-        setSummary(summaryData);
+        setSummary(summaryData); // array of ReportSummaryOut
       } catch (err) {
         console.error('Failed to load report data:', err);
       } finally {
@@ -42,9 +34,8 @@ export function FacultyReports() {
     loadData();
   }, []);
 
-  // Load course report when selection changes
   useEffect(() => {
-    if (!selectedCourse) { setReportData(null); setLowAttendance(null); return; }
+    if (!selectedCourse) { setReportData(null); setLowAttendance([]); return; }
     const loadReport = async () => {
       setReportLoading(true);
       try {
@@ -52,8 +43,8 @@ export function FacultyReports() {
           apiGetCourseReport(selectedCourse),
           apiGetLowAttendance(selectedCourse),
         ]);
-        setReportData(report);
-        setLowAttendance(lowAtt);
+        setReportData(report);       // CourseAnalyticsOut
+        setLowAttendance(lowAtt);    // list[LowAttendanceStudentOut]
       } catch (err) {
         console.error('Failed to load report:', err);
       } finally {
@@ -63,14 +54,18 @@ export function FacultyReports() {
     loadReport();
   }, [selectedCourse]);
 
-  /** [NEW] Trigger CSV download for the selected course */
   const handleExport = async () => {
     if (!selectedCourse) return;
     try { await apiExportCSV(selectedCourse); } catch (err) { console.error('Export failed:', err); }
   };
 
+  // Aggregate summary stats from the summary array
+  const totalCourses = summary.length;
+  const totalStudents = summary.reduce((s, c) => s + (c.total_students ?? 0), 0);
+  const totalRecords = summary.reduce((s, c) => s + (c.total_students ?? 0), 0); // no record count in backend
+
   if (loading) {
-    return (<div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>);
+    return <div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>;
   }
 
   return (
@@ -87,22 +82,26 @@ export function FacultyReports() {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Summary Stats */}
+        {/* Summary Stats — derived from summary array */}
         <div className="grid grid-cols-3 gap-3">
           <Card className="p-3 bg-card border-border text-center">
             <Calendar className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{summary?.totalCourses || 0}</p>
+            <p className="text-lg font-bold text-foreground">{totalCourses}</p>
             <p className="text-xs text-muted-foreground">Courses</p>
           </Card>
           <Card className="p-3 bg-card border-border text-center">
             <Users className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{summary?.totalStudents || 0}</p>
+            <p className="text-lg font-bold text-foreground">{totalStudents}</p>
             <p className="text-xs text-muted-foreground">Students</p>
           </Card>
           <Card className="p-3 bg-card border-border text-center">
             <TrendingUp className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{summary?.totalRecords || 0}</p>
-            <p className="text-xs text-muted-foreground">Records</p>
+            <p className="text-lg font-bold text-foreground">
+              {totalCourses > 0
+                ? (summary.reduce((s, c) => s + (c.average_attendance_pct ?? 0), 0) / totalCourses).toFixed(0)
+                : 0}%
+            </p>
+            <p className="text-xs text-muted-foreground">Avg Attendance</p>
           </Card>
         </div>
 
@@ -114,91 +113,81 @@ export function FacultyReports() {
               <SelectValue placeholder="Choose a course to view reports" />
             </SelectTrigger>
             <SelectContent>
-              {courses.map((course) => (
-                <SelectItem key={course.id} value={course.id}>{course.code} - {course.name}</SelectItem>
+              {courses.map((course: any) => (
+                <SelectItem key={course.event_id} value={course.event_id}>
+                  {course.event_name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Card>
 
         {reportLoading && (
-          <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
         )}
 
         {selectedCourse && reportData && !reportLoading && (
           <>
-            {/* Course Info + Export Button */}
+            {/* Course Info + Export */}
+            {/* Backend: course_id, course_name, total_students, total_sessions, average_attendance_pct */}
             <Card className="p-4 bg-card border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <Badge className="bg-primary/20 text-primary border-primary/50 border mb-2">{reportData.course?.code}</Badge>
-                  <h3 className="font-bold text-foreground">{reportData.course?.name}</h3>
+                  <h3 className="font-bold text-foreground">{reportData.course_name}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {reportData.totalStudents} students • {reportData.overallAttendanceRate}% avg attendance
+                    {reportData.total_students} students • {reportData.total_sessions} sessions • {reportData.average_attendance_pct}% avg
                   </p>
                 </div>
-                {/* [NEW] CSV Export Button */}
                 <Button onClick={handleExport} variant="outline" size="sm" className="border-primary/50 text-primary hover:bg-primary/10">
                   <Download className="w-4 h-4 mr-1" /> Export CSV
                 </Button>
               </div>
             </Card>
 
-            {/* Attendance Chart */}
-            {reportData.dailyAttendance?.length > 0 && (
-              <Card className="p-4 bg-card border-border">
-                <h3 className="font-semibold text-foreground mb-4">Recent Attendance</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={reportData.dailyAttendance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                    <XAxis dataKey="date" stroke="#888888" tick={{ fill: '#888888', fontSize: 12 }} />
-                    <YAxis stroke="#888888" tick={{ fill: '#888888', fontSize: 12 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255, 215, 0, 0.2)', borderRadius: '8px', color: '#ffffff' }} />
-                    <Bar dataKey="present" fill="#ffd700" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
-
-            {/* [NEW] Low Attendance Alert Section */}
-            {lowAttendance && lowAttendance.totalAtRisk > 0 && (
+            {/* Low Attendance Alert */}
+            {/* Backend: list of { student_id, name, email, attendance_pct } */}
+            {lowAttendance.length > 0 && (
               <Card className="p-4 bg-destructive/5 border-destructive/30 border">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="w-5 h-5 text-destructive" />
                   <h3 className="font-semibold text-foreground">Low Attendance Alert</h3>
                   <Badge className="bg-destructive/20 text-destructive border-destructive/50 border text-xs ml-auto">
-                    {lowAttendance.totalAtRisk} at risk
+                    {lowAttendance.length} at risk
                   </Badge>
                 </div>
                 <div className="space-y-2">
-                  {lowAttendance.studentsAtRisk.map((student: any) => (
-                    <div key={student.studentId} className="flex items-center justify-between p-2 bg-background rounded-lg">
+                  {lowAttendance.map((student: any) => (
+                    <div key={student.student_id} className="flex items-center justify-between p-2 bg-background rounded-lg">
                       <div>
-                        <p className="text-sm font-medium text-foreground">{student.studentName}</p>
-                        <p className="text-xs text-muted-foreground">{student.studentEmail}</p>
+                        <p className="text-sm font-medium text-foreground">{student.name}</p>
+                        <p className="text-xs text-muted-foreground">{student.email}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-destructive">{student.percentage}%</p>
-                        <p className="text-xs text-muted-foreground">Needs {student.classesNeeded} more</p>
-                      </div>
+                      <p className="text-sm font-bold text-destructive">{student.attendance_pct}%</p>
                     </div>
                   ))}
                 </div>
               </Card>
             )}
 
-            {/* Student-wise Breakdown */}
+            {/* Summary per-course breakdown as student list */}
+            {/* Backend has no per-session daily data, so show per-student breakdown from summary */}
             <Card className="p-4 bg-card border-border">
-              <h3 className="font-semibold text-foreground mb-3">Student Attendance</h3>
+              <h3 className="font-semibold text-foreground mb-3">Course Summary</h3>
               <div className="space-y-3">
-                {reportData.studentStats?.map((student: any) => (
-                  <div key={student.studentId} className="flex items-center justify-between">
+                {summary.map((course: any) => (
+                  <div key={course.course_id} className="flex items-center justify-between">
                     <div>
-                      <span className="text-sm text-foreground">{student.studentName}</span>
-                      <p className="text-xs text-muted-foreground">{student.attended}/{student.total} classes</p>
+                      <span className="text-sm text-foreground">{course.course_name}</span>
+                      <p className="text-xs text-muted-foreground">{course.total_students} students</p>
                     </div>
-                    <Badge className={`${student.percentage >= 75 ? 'bg-primary/20 text-primary border-primary/50' : 'bg-destructive/20 text-destructive border-destructive/50'} border text-xs`}>
-                      {student.percentage}%
+                    <Badge className={`${
+                      course.average_attendance_pct >= 75
+                        ? 'bg-primary/20 text-primary border-primary/50'
+                        : 'bg-destructive/20 text-destructive border-destructive/50'
+                    } border text-xs`}>
+                      {course.average_attendance_pct}%
                     </Badge>
                   </div>
                 ))}

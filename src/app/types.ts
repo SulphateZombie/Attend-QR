@@ -58,7 +58,7 @@ export interface Slot {
 /** A time-limited QR code session for marking attendance */
 export interface QRSession {
   id: string;
-  slotId: string;
+  sessionId: string;
   courseId: string;
   qrCode: string;        // The unique QR code string
   generatedAt: string;   // ISO timestamp

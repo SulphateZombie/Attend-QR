@@ -186,15 +186,51 @@ def create_slot(time_slot_id: str, day: str, start_time: str, end_time: str):
 
 # ── QR Sessions ───────────────────────────────────────────────────────────────
 
+# def create_qr_session(session_id, course_id: str, host_id: str,
+#                       generated_at: str, expires_at: str):
+#     with get_conn() as conn:
+#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+#             # generated_time = datetime.fromisoformat(generated_at).strftime('%H:%M:%S')
+#             # expires_time = datetime.fromisoformat(expires_at).strftime('%H:%M:%S')
+#             cur.execute("call start_course_attendance_session(%s,%s,%s)",(course_id,host_id,session_id))
+#             return session_id
+
+# def create_qr_session(session_id, course_id: str, host_id: str,
+#                       generated_at: str, expires_at: str):
+#     with get_conn() as conn:
+#         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+#             try:
+#                 cur.execute(
+#                     "call start_course_attendance_session(%s,%s,%s::uuid)",
+#                     (course_id,host_id,session_id)
+#                 )
+#                 print(f"DEBUG create_qr_session: inserted session {session_id} for course {course_id}")
+#             except Exception as e:
+#                 print(f"ERROR create_qr_session failed: {e}")
+#                 raise  # re-raise so get_conn rolls back and router gets a 500
+#             return session_id
+
 def create_qr_session(session_id, course_id: str, host_id: str,
                       generated_at: str, expires_at: str):
     with get_conn() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # generated_time = datetime.fromisoformat(generated_at).strftime('%H:%M:%S')
-            # expires_time = datetime.fromisoformat(expires_at).strftime('%H:%M:%S')
-            cur.execute("call start_course_attendance_session(%s,%s,%s)",(course_id,host_id,session_id))
-            return session_id
-        
+        with conn.cursor() as cur:
+            try:
+                cur.execute("""
+                    INSERT INTO course_attendance_sessions 
+                    (session_id, event_id, is_active, start_timestamp, id)
+                    VALUES (%s::uuid, %s, TRUE, current_timestamp, %s)
+                """, (session_id, course_id, host_id))
+                print(f"DEBUG: insert executed")
+            except Exception as e:
+                print(f"ERROR: {e}")
+                raise
+        conn.commit()  # ← move commit explicitly here, outside the cursor block
+        print(f"DEBUG: committed")
+    print(f"DEBUG: connection returned to pool")
+    return session_id
+
+
+
 def get_active_qr_session_by_id(session_id: str):
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:

@@ -9,13 +9,14 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 TOKEN_SECRET = os.getenv("TOKEN_SECRET", "change-this-secret-in-production")
 WINDOW_SECONDS = 30  # token rotates every 30 seconds
 
-
 def _current_window() -> int:
-    """Returns an integer that changes every 30 seconds."""
     return int(time.time()) // WINDOW_SECONDS
 
+def get_seconds_remaining() -> int:
+    return WINDOW_SECONDS - (int(time.time()) % WINDOW_SECONDS)
 
-def generate_token(session_id: str, window=None) -> str:
+
+def generate_token(session_id, window=None) -> str:
     """
     Generate a 12-character alphanumeric token for a given session_id
     and time window. Uses HMAC-SHA256 so it's unguessable without the secret.
@@ -29,7 +30,7 @@ def generate_token(session_id: str, window=None) -> str:
     return digest[:12]
 
 
-def verify_token(session_id: str, token: str) -> bool:
+def verify_token(session_id, token: str) -> bool:
     """
     Verify that the token matches the current OR previous window.
     Allowing the previous window (30s grace) prevents rejecting a student
@@ -43,6 +44,6 @@ def verify_token(session_id: str, token: str) -> bool:
     return token in valid_tokens
 
 
-def current_token(session_id: str) -> str:
+def current_token(session_id) -> str:
     """Returns the token that is valid right now for this session."""
     return generate_token(session_id)

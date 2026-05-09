@@ -154,11 +154,15 @@ export async function apiGetAllSlots() {
 // QR SESSIONS API
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function apiGenerateQR(slotId: string, courseId: string, duration: number = 5) {
+export async function apiGenerateQR(courseId: string) {
   return apiFetch('/api/qr/generate', {
     method: 'POST',
-    body: JSON.stringify({ slotId, courseId, duration }),
+    body: JSON.stringify({ course_id: courseId }),
   });
+}
+
+export async function apiRotateQR(sessionId: string) {
+  return apiFetch(`/api/qr/rotate/${sessionId}`, { method: 'POST' }); // ✅ template literal
 }
 
 export async function apiGetActiveQR(courseId: string) {
@@ -168,7 +172,7 @@ export async function apiGetActiveQR(courseId: string) {
 export async function apiValidateQR(qrCode: string) {
   return apiFetch('/api/qr/validate', {
     method: 'POST',
-    body: JSON.stringify({ qrCode }),
+    body: JSON.stringify({ qr_payload:qrCode }),
   });
 }
 
@@ -177,10 +181,10 @@ export async function apiValidateQR(qrCode: string) {
 // ATTENDANCE API
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function apiMarkAttendance(qrCode: string) {
+export async function apiMarkAttendance(qrCode: string,courseId:string) {
   return apiFetch('/api/attendance/mark', {
     method: 'POST',
-    body: JSON.stringify({ qrCode }),
+    body: JSON.stringify({ qr_payload:qrCode,course_id:courseId }),
   });
 }
 

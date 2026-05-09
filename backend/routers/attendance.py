@@ -88,7 +88,7 @@ def get_stats(current_user: dict = Depends(get_current_user)):
                 SELECT
                     r.event_id                                          AS course_id,
                     et.event_name                                       AS course_name,
-                    COUNT(DISTINCT cas.session_id)                      AS total_classes,
+                    COUNT(DISTINCT cas.session_id)                          AS total_classes,
                     sum(ca.status)                      AS attended,
                     ROUND(
                         sum(ca.status)::numeric /
